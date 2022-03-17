@@ -18,13 +18,13 @@ import java.util.stream.Stream;
 public class CSVUtilTest {
 
     @Test
-    void converterData(){
+    void converterData() {
         List<Player> list = CsvUtilFile.getPlayers();
         assert list.size() == 18207;
     }
 
     @Test
-    void stream_filtrarJugadoresMayoresA35(){
+    void stream_filtrarJugadoresMayoresA35() {
         List<Player> list = CsvUtilFile.getPlayers();
         Map<String, List<Player>> listFilter = list.parallelStream()
                 .filter(player -> player.age >= 35)
@@ -43,7 +43,7 @@ public class CSVUtilTest {
 
 
     @Test
-    void reactive_filtrarJugadoresMayoresA35(){
+    void reactive_filtrarJugadoresMayoresA35() {
         List<Player> list = CsvUtilFile.getPlayers();
         Flux<Player> listFlux = Flux.fromStream(list.parallelStream()).cache();
         Mono<Map<String, Collection<Player>>> listFilter = listFlux
@@ -54,8 +54,8 @@ public class CSVUtilTest {
                 })
                 .buffer(100)
                 .flatMap(playerA -> listFlux
-                         .filter(playerB -> playerA.stream()
-                                 .anyMatch(a ->  a.club.equals(playerB.club)))
+                        .filter(playerB -> playerA.stream()
+                                .anyMatch(a -> a.club.equals(playerB.club)))
                 )
                 .distinct()
                 .collectMultimap(Player::getClub);
@@ -63,6 +63,61 @@ public class CSVUtilTest {
         assert listFilter.block().size() == 322;
     }
 
+    @Test
+    void filtrarPorRankingDeVictoria() {
+
+        //VARIABLES ----------------------------------------------------------//
+        List<Player> list = CsvUtilFile.getPlayers();
+        Flux<Player> listFlux = Flux.fromStream(list.parallelStream()).cache();
+        //VARIABLES ----------------------------------------------------------//
+
+
+        //FILTRO -------------------------------------------------------------//
+        Mono<Map<String, Collection<Player>>> listFilter = listFlux
+                .buffer(100)
+                .flatMap(playerA -> listFlux
+                        .filter(playerB -> playerA.stream()
+                                .anyMatch(a -> a.national.equals(playerB.national)))
+                ).distinct()
+                .sort((k, player) -> player.winners)
+                .collectMultimap(Player::getNational);
+
+        System.out.println("Por Nacionalidad: [" + listFilter.block().size() + "]");
+        listFilter.block().forEach((pais, players) -> {
+            System.out.println("\n[Pais: " + pais + "]");
+            players.forEach(player -> {
+                System.out.println("Nombre: ["+player.name + "] victorias: [" + player.winners + "]");
+            });
+        });
+        //FILTRO -------------------------------------------------------------//
+    }
+
+    @Test
+    void filtrarJugadoresMayoresa34() {
+        //VARIABLES ----------------------------------------------------------//
+        List<Player> list = CsvUtilFile.getPlayers();
+        Flux<Player> listFlux = Flux.fromStream(list.parallelStream()).cache();
+        //VARIABLES ----------------------------------------------------------//
+
+        //FILTRO -------------------------------------------------------------//
+        Mono<Map<String, Collection<Player>>> listFilter = listFlux
+                .filter(player -> player.age >= 34 && player.club.equals("FC Schalke 04"))
+                .distinct()
+                .collectMultimap(Player::getClub);
+        System.out.println("--------------------------------------------");
+        System.out.print("[Equipo: ");
+        listFilter.block().forEach((equipo, players) -> {
+            System.out.println(equipo + "]\n");
+            players.forEach(player -> {
+                System.out.println("[Nombre: " + player.name + "] [Edad: " + player.age + "]");
+                assert player.club.equals("FC Schalke 04");
+            });
+        });
+        System.out.println("--------------------------------------------");
+        System.out.println(listFilter.block().size());
+        assert listFilter.block().size() == 1;
+        //FILTRO -------------------------------------------------------------//
+    }
 
 
 }
